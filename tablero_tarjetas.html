@@ -1,0 +1,1137 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tablero — Tarjetas Funcionario TM</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#0F2547;--blue:#1A52A8;--teal:#0B8F82;--orange:#D95F1A;
+  --red:#C0392B;--amber:#C07A10;--sky:#E8F0FB;--card:#fff;
+  --bg:#EEF2F9;--border:#D0DAF0;--text:#1A2740;--muted:#5A6A85;--r:12px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+/* ── HERO HEADER ── */
+#hero{position:relative;height:160px;overflow:hidden;background:#0a1628}
+#hero svg{position:absolute;inset:0;width:100%;height:100%}
+#hero-overlay{
+  position:absolute;inset:0;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 36px;z-index:10;
+  background:linear-gradient(90deg,#0F254799 0%,#0F254740 60%,transparent 100%);
+}
+.hero-left{display:flex;align-items:center;gap:14px}
+.hero-logo{width:52px;height:52px;background:rgba(26,82,168,.85);border-radius:12px;display:grid;place-items:center;font-size:26px;flex-shrink:0;border:1px solid rgba(122,180,255,.3)}
+.hero-title h1{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:#fff;line-height:1.1}
+.hero-title span{color:#7AB4FF;font-size:12px;font-weight:400;display:block;margin-top:2px}
+.hero-right{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.badge{background:#ffffff14;border:1px solid #ffffff22;color:#B8CCE8;font-size:12px;padding:5px 12px;border-radius:20px;white-space:nowrap}
+.badge.live::before{content:'● ';color:#0B8F82}
+.btn-back{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22);color:#fff;border-radius:8px;padding:7px 13px;font-size:13px;font-family:'DM Sans';cursor:pointer;font-weight:600;transition:background .2s;white-space:nowrap;display:flex;align-items:center;gap:6px;text-decoration:none}
+.btn-back:hover{background:rgba(255,255,255,.22)}
+.btn-upload{background:var(--blue);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-family:'DM Sans';cursor:pointer;font-weight:600;transition:background .2s;white-space:nowrap}
+.btn-upload:hover{background:#2563C0}
+
+/* ── UPLOAD BANNER ── */
+#upload-banner{overflow:hidden;transition:max-height .45s ease;max-height:240px;background:linear-gradient(135deg,#152E5B,#1B4899);border-bottom:2px solid #1A52A840}
+#upload-banner.collapsed{max-height:0}
+.upload-inner{padding:20px 32px;display:flex;align-items:center;gap:22px;flex-wrap:wrap}
+.upload-icon{font-size:38px;flex-shrink:0}
+.upload-text h2{font-family:'Syne',sans-serif;font-size:16px;font-weight:700;color:#fff;margin-bottom:3px}
+.upload-text p{font-size:12px;color:#8AAEDC}
+.upload-zone{flex:1;min-width:280px;border:2px dashed #4A7ABF;border-radius:10px;padding:18px 22px;cursor:pointer;display:flex;align-items:center;gap:14px;background:#ffffff0A;transition:all .2s;position:relative}
+.upload-zone:hover,.upload-zone.drag-over{border-color:#7ABFFF;background:#ffffff18}
+.upload-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.uz-icon{font-size:30px}.uz-label{font-size:13px;color:#B0CFEE}
+.uz-label strong{color:#fff;display:block;font-size:14px;margin-bottom:2px}
+.upload-hint{font-size:11px;color:#6A96C8;padding:0 32px 14px}
+
+/* ── OVERLAY ── */
+#processing{display:none;position:fixed;inset:0;z-index:999;background:#0F254799;backdrop-filter:blur(6px);flex-direction:column;align-items:center;justify-content:center;gap:18px}
+#processing.show{display:flex}
+.spin{width:50px;height:50px;border:4px solid #ffffff20;border-top-color:#7AB4FF;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#processing p{color:#fff;font-size:16px;font-weight:600}
+#processing small{color:#8AAEDC;font-size:13px}
+
+/* ── TOAST ── */
+#toast{position:fixed;bottom:24px;right:24px;z-index:500;background:var(--teal);color:#fff;border-radius:10px;padding:14px 20px;font-size:14px;font-weight:500;display:flex;align-items:center;gap:10px;transform:translateY(80px);opacity:0;transition:all .35s ease;box-shadow:0 4px 20px #00000040;max-width:440px}
+#toast.show{transform:none;opacity:1}
+
+/* ── FILTER BAR ── */
+.filter-bar{background:var(--card);border-bottom:1px solid var(--border);padding:11px 32px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.filter-bar label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.filter-bar select{border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-family:'DM Sans';font-size:13px;color:var(--text);background:var(--bg);cursor:pointer;transition:border-color .2s}
+.filter-bar select:focus{outline:none;border-color:var(--blue)}
+#f-area{min-width:240px}#f-vinculacion{min-width:175px}
+.btn-reset{background:var(--navy);color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:13px;font-family:'DM Sans';cursor:pointer;font-weight:500;transition:background .2s}
+.btn-reset:hover{background:var(--blue)}
+.filter-spacer{flex:1}
+.records-count{font-size:13px;color:var(--muted)}
+.records-count strong{color:var(--blue);font-size:15px}
+#source-tag{font-size:11px;padding:4px 10px;border-radius:20px;background:var(--sky);color:var(--blue);font-weight:600;white-space:nowrap;max-width:220px;overflow:hidden;text-overflow:ellipsis}
+
+/* ── MAIN ── */
+main{padding:22px 32px;display:flex;flex-direction:column;gap:20px}
+
+/* ── KPI GRID ── */
+.kpi-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:13px}
+.kpi{background:var(--card);border-radius:var(--r);padding:18px 16px;border:1px solid var(--border);position:relative;overflow:hidden;transition:transform .2s,box-shadow .2s}
+.kpi:hover{transform:translateY(-3px);box-shadow:0 8px 28px #1A274012}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--accent,var(--blue))}
+.kpi-icon{font-size:22px;margin-bottom:5px}
+.kpi-pct{font-size:11px;font-weight:700;color:var(--accent,var(--blue));margin-bottom:2px;letter-spacing:.02em}
+.kpi-val{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;color:var(--text);line-height:1}
+.kpi-label{font-size:10px;color:var(--muted);font-weight:600;margin-top:4px;text-transform:uppercase;letter-spacing:.04em}
+.kpi-sub{font-size:10px;color:var(--muted);margin-top:2px}
+.kpi-delta{position:absolute;top:10px;right:10px;font-size:10px;font-weight:600;padding:2px 6px;border-radius:20px}
+.kpi-delta.bad{background:#C0392B15;color:var(--red)}
+.kpi-delta.warn{background:#C07A1015;color:var(--amber)}
+
+/* ── LAYOUT ── */
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.row3{display:grid;grid-template-columns:1.5fr 1fr;gap:18px}
+.row-full{grid-column:1/-1}
+
+/* ── CARD ── */
+.card{background:var(--card);border-radius:var(--r);border:1px solid var(--border);padding:20px 22px;display:flex;flex-direction:column;gap:14px}
+.card-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.card-title{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:8px}
+.card-badge{font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;background:var(--sky);color:var(--blue)}
+
+/* ── CHARTS ── */
+.chart-wrap{position:relative;width:100%}
+.chart-wrap canvas{max-height:240px}
+/* Areas chart — no scroll, canvas sized precisely */
+#areas-wrap{position:relative;width:100%;overflow:hidden}
+
+/* ── STAT LIST ── */
+.stat-list{display:flex;flex-direction:column;gap:7px}
+.stat-row{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;padding:8px 11px;border-radius:8px;background:var(--bg);font-size:13px;transition:background .15s}
+.stat-row:hover{background:var(--sky)}
+.stat-row .name{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stat-row .count{font-family:'Syne',sans-serif;font-weight:700;font-size:14px;color:var(--blue)}
+.stat-row .pct{font-size:11px;color:var(--muted);min-width:36px;text-align:right}
+.stat-bar-wrap{height:4px;background:var(--border);border-radius:2px;margin-top:1px}
+.stat-bar{height:4px;border-radius:2px}
+
+/* ── PERIOD CONTROLS ── */
+.period-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.period-controls label{font-size:11px;color:var(--muted);font-weight:600}
+.period-controls select{border:1px solid var(--border);border-radius:7px;padding:5px 10px;font-family:'DM Sans';font-size:12px;background:var(--bg);color:var(--text);cursor:pointer}
+.period-controls select:focus{outline:none;border-color:var(--blue)}
+
+/* ── ALERT TABLE ── */
+.alert-table{width:100%;border-collapse:collapse;font-size:13px}
+.alert-table th{text-align:left;padding:8px 11px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);border-bottom:2px solid var(--border);background:var(--bg)}
+.alert-table td{padding:8px 11px;border-bottom:1px solid var(--border);vertical-align:middle}
+.alert-table tr:last-child td{border-bottom:none}
+.alert-table tr:hover td{background:var(--sky)}
+.days-chip{display:inline-block;padding:3px 8px;border-radius:20px;font-weight:600;font-size:11px}
+.days-chip.urgent{background:#C0392B18;color:var(--red)}
+.days-chip.warn{background:#C07A1018;color:var(--amber)}
+.days-chip.ok{background:#0B8F8218;color:var(--teal)}
+
+/* ── VENCER SCROLL TABLE ── */
+.vencer-scroll{height:420px;overflow-y:auto;border-radius:8px;border:1px solid var(--border)}
+.vencer-scroll .alert-table th{position:sticky;top:0;z-index:5;background:var(--bg)}
+.vencer-scroll-info{font-size:12px;color:var(--muted);margin-top:6px;text-align:right}
+
+/* ── PAGOS TOTALIZADOR ── */
+.pagos-total-wrap{
+  background:var(--bg);border-radius:10px;border:1px solid var(--border);
+  overflow:hidden;margin-top:4px
+}
+.pagos-total-header{
+  display:grid;grid-template-columns:1fr auto auto;gap:0;
+  background:#E8F0FB;padding:7px 14px;
+  font-size:11px;font-weight:700;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--border)
+}
+.pagos-rows{max-height:160px;overflow-y:auto}
+.pagos-row{
+  display:grid;grid-template-columns:1fr auto auto;gap:0;
+  padding:6px 14px;border-bottom:1px solid #EEF2F9;
+  font-size:12px;transition:background .12s;align-items:center
+}
+.pagos-row:last-child{border-bottom:none}
+.pagos-row:hover{background:var(--sky)}
+.pagos-row .pr-mes{color:var(--text);font-weight:500}
+.pagos-row .pr-val{font-family:'Syne',sans-serif;font-weight:700;font-size:13px;color:var(--blue);text-align:right;min-width:110px}
+.pagos-row .pr-bar{width:80px;height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-left:12px}
+.pagos-row .pr-bar-fill{height:100%;border-radius:3px;background:var(--blue)}
+.pagos-total-row{
+  display:grid;grid-template-columns:1fr auto;gap:0;
+  padding:9px 14px;background:var(--navy);
+  font-size:13px;font-weight:700;color:#fff;
+  border-top:2px solid var(--blue)
+}
+.pagos-total-row .pt-label{color:#8BA7D0;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.pagos-total-row .pt-val{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:#fff;text-align:right}
+#periodo-banner{
+  background:linear-gradient(90deg,#162F5B 0%,#1A52A8 100%);
+  padding:8px 32px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  border-bottom:1px solid #1A52A840;
+}
+.periodo-label{font-size:12px;color:#8AAEDC;font-weight:500}
+.periodo-pill{
+  background:#ffffff18;border:1px solid #ffffff28;
+  color:#fff;font-size:13px;font-weight:700;padding:4px 14px;border-radius:20px;
+  font-family:'Syne',sans-serif;letter-spacing:.04em
+}
+.periodo-pill .cal-icon{margin-right:5px}
+.periodo-desc{font-size:11px;color:#6A96C8;margin-left:auto}
+
+footer{text-align:center;padding:16px;font-size:11px;color:var(--muted);border-top:1px solid var(--border);background:var(--card)}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.kpi{animation:fadeUp .4s ease both}
+.kpi:nth-child(1){animation-delay:.04s}.kpi:nth-child(2){animation-delay:.08s}
+.kpi:nth-child(3){animation-delay:.12s}.kpi:nth-child(4){animation-delay:.16s}
+.kpi:nth-child(5){animation-delay:.20s}.kpi:nth-child(6){animation-delay:.24s}
+
+@media(max-width:1200px){.kpi-grid{grid-template-columns:repeat(3,1fr)}.row2,.row3{grid-template-columns:1fr}}
+@media(max-width:768px){main,.filter-bar,.upload-inner{padding:14px 16px}#hero{height:120px}.hero-title h1{font-size:16px}.kpi-grid{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+
+<div id="processing">
+  <div class="spin"></div>
+  <p id="proc-title">Procesando archivo Excel…</p>
+  <small id="proc-step">Leyendo hojas…</small>
+</div>
+<div id="toast"><span id="toast-msg"></span></div>
+
+<!-- ══ HERO HEADER con imagen AI estilo TransMilenio ══ -->
+<div id="hero">
+  <svg viewBox="0 0 1400 160" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
+    <defs>
+      <linearGradient id="sky-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" style="stop-color:#1a3a6e;stop-opacity:1"/>
+        <stop offset="100%" style="stop-color:#2d5a9e;stop-opacity:1"/>
+      </linearGradient>
+      <linearGradient id="road-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" style="stop-color:#2a3a50"/>
+        <stop offset="100%" style="stop-color:#1a2535"/>
+      </linearGradient>
+      <linearGradient id="bus1-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" style="stop-color:#E8272A"/>
+        <stop offset="100%" style="stop-color:#B51E21"/>
+      </linearGradient>
+      <linearGradient id="bus2-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" style="stop-color:#CC2020"/>
+        <stop offset="100%" style="stop-color:#991818"/>
+      </linearGradient>
+      <linearGradient id="station-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" style="stop-color:#3a6abf"/>
+        <stop offset="100%" style="stop-color:#1a3a7e"/>
+      </linearGradient>
+      <linearGradient id="overlay-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" style="stop-color:#0F2547;stop-opacity:0.85"/>
+        <stop offset="50%" style="stop-color:#0F2547;stop-opacity:0.3"/>
+        <stop offset="100%" style="stop-color:#0F2547;stop-opacity:0.05"/>
+      </linearGradient>
+      <filter id="glow">
+        <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+        <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+      <clipPath id="bus-clip"><rect x="0" y="0" width="1400" height="160"/></clipPath>
+    </defs>
+
+    <!-- Sky background -->
+    <rect width="1400" height="160" fill="url(#sky-grad)"/>
+
+    <!-- City buildings silhouette far -->
+    <g opacity="0.25">
+      <rect x="520" y="30" width="18" height="90" fill="#5080C0"/>
+      <rect x="540" y="45" width="14" height="75" fill="#4070B0"/>
+      <rect x="556" y="20" width="22" height="100" fill="#5080C0"/>
+      <rect x="580" y="38" width="16" height="82" fill="#4575B5"/>
+      <rect x="598" y="55" width="12" height="65" fill="#3565A5"/>
+      <rect x="612" y="32" width="20" height="88" fill="#4575B5"/>
+      <rect x="634" y="48" width="15" height="72" fill="#3565A5"/>
+      <rect x="651" y="22" width="25" height="98" fill="#5080C0"/>
+      <rect x="678" y="40" width="18" height="80" fill="#4070B0"/>
+      <rect x="698" y="58" width="13" height="62" fill="#3565A5"/>
+      <rect x="713" y="35" width="21" height="85" fill="#4575B5"/>
+      <rect x="736" y="50" width="16" height="70" fill="#3565A5"/>
+      <rect x="754" y="28" width="24" height="92" fill="#5080C0"/>
+      <rect x="780" y="42" width="17" height="78" fill="#4070B0"/>
+      <!-- Monserrate hill silhouette -->
+      <polygon points="850,120 920,30 990,120" fill="#3a5a9a" opacity="0.6"/>
+      <polygon points="820,120 910,45 1000,120" fill="#2a4a8a" opacity="0.4"/>
+      <!-- Church on Monserrate -->
+      <rect x="912" y="20" width="16" height="25" fill="#4a6aaa" opacity="0.7"/>
+      <polygon points="912,20 920,10 928,20" fill="#5a7aba" opacity="0.7"/>
+    </g>
+
+    <!-- Mountains background -->
+    <polygon points="1000,160 1100,60 1200,160" fill="#1e3a6e" opacity="0.4"/>
+    <polygon points="1150,160 1250,40 1350,160" fill="#1a3464" opacity="0.3"/>
+    <polygon points="1050,160 1200,70 1400,160" fill="#162e5a" opacity="0.35"/>
+
+    <!-- Road surface -->
+    <rect x="0" y="118" width="1400" height="42" fill="url(#road-grad)"/>
+    <!-- Road markings -->
+    <g fill="#ffffff" opacity="0.18">
+      <rect x="0" y="136" width="80" height="4"/>
+      <rect x="100" y="136" width="80" height="4"/>
+      <rect x="200" y="136" width="80" height="4"/>
+      <rect x="300" y="136" width="80" height="4"/>
+      <rect x="400" y="136" width="80" height="4"/>
+      <rect x="500" y="136" width="80" height="4"/>
+      <rect x="600" y="136" width="80" height="4"/>
+      <rect x="700" y="136" width="80" height="4"/>
+      <rect x="800" y="136" width="80" height="4"/>
+      <rect x="900" y="136" width="80" height="4"/>
+      <rect x="1000" y="136" width="80" height="4"/>
+      <rect x="1100" y="136" width="80" height="4"/>
+      <rect x="1200" y="136" width="80" height="4"/>
+      <rect x="1300" y="136" width="80" height="4"/>
+    </g>
+    <!-- Dedicated lane line -->
+    <rect x="0" y="120" width="1400" height="2" fill="#E8272A" opacity="0.6"/>
+
+    <!-- BRT Station platform -->
+    <rect x="750" y="60" width="200" height="60" rx="4" fill="url(#station-grad)" opacity="0.85"/>
+    <rect x="750" y="60" width="200" height="8" rx="4" fill="#4a8ade" opacity="0.7"/>
+    <!-- Station roof struts -->
+    <rect x="760" y="60" width="4" height="60" fill="#3a6aae" opacity="0.5"/>
+    <rect x="830" y="60" width="4" height="60" fill="#3a6aae" opacity="0.5"/>
+    <rect x="900" y="60" width="4" height="60" fill="#3a6aae" opacity="0.5"/>
+    <rect x="942" y="60" width="4" height="60" fill="#3a6aae" opacity="0.5"/>
+    <!-- Station windows -->
+    <rect x="770" y="72" width="24" height="20" rx="2" fill="#7ab4ff" opacity="0.3"/>
+    <rect x="800" y="72" width="24" height="20" rx="2" fill="#7ab4ff" opacity="0.3"/>
+    <rect x="840" y="72" width="24" height="20" rx="2" fill="#7ab4ff" opacity="0.3"/>
+    <rect x="870" y="72" width="24" height="20" rx="2" fill="#7ab4ff" opacity="0.3"/>
+    <!-- TM sign on station -->
+    <rect x="840" y="63" width="36" height="14" rx="3" fill="#E8272A"/>
+    <text x="858" y="73" font-family="Arial" font-size="8" font-weight="bold" fill="white" text-anchor="middle">TM</text>
+
+    <!-- Articulated Bus 1 - main large red bus -->
+    <g transform="translate(330, 62)" clip-path="url(#bus-clip)">
+      <!-- Bus body -->
+      <rect x="0" y="0" width="280" height="58" rx="6" fill="url(#bus1-grad)"/>
+      <!-- White stripe -->
+      <rect x="0" y="22" width="280" height="14" fill="white" opacity="0.15"/>
+      <!-- Windows row -->
+      <rect x="12" y="6" width="30" height="18" rx="3" fill="#b3d4f5" opacity="0.7"/>
+      <rect x="48" y="6" width="28" height="18" rx="3" fill="#b3d4f5" opacity="0.7"/>
+      <rect x="82" y="6" width="28" height="18" rx="3" fill="#b3d4f5" opacity="0.7"/>
+      <!-- Articulation joint -->
+      <rect x="118" y="0" width="14" height="58" fill="#8a1515" opacity="0.6"/>
+      <rect x="126" y="10" width="4" height="38" rx="2" fill="#666" opacity="0.5"/>
+      <!-- Second section windows -->
+      <rect x="140" y="6" width="28" height="18" rx="3" fill="#b3d4f5" opacity="0.7"/>
+      <rect x="174" y="6" width="28" height="18" rx="3" fill="#b3d4f5" opacity="0.7"/>
+      <rect x="208" y="6" width="28" height="18" rx="3" fill="#b3d4f5" opacity="0.7"/>
+      <rect x="242" y="6" width="28" height="18" rx="3" fill="#b3d4f5" opacity="0.7"/>
+      <!-- TM logo on bus -->
+      <rect x="14" y="26" width="38" height="18" rx="3" fill="white" opacity="0.9"/>
+      <text x="33" y="39" font-family="Arial" font-size="11" font-weight="bold" fill="#E8272A" text-anchor="middle">TM</text>
+      <!-- Front grille -->
+      <rect x="0" y="38" width="12" height="8" rx="1" fill="#333" opacity="0.7"/>
+      <!-- Headlights -->
+      <circle cx="6" cy="14" r="5" fill="#FFE066" opacity="0.9" filter="url(#glow)"/>
+      <circle cx="6" cy="14" r="3" fill="#FFFAAA"/>
+      <!-- Destination sign -->
+      <rect x="60" y="26" width="90" height="14" rx="2" fill="#1a2a4a"/>
+      <text x="105" y="36" font-family="Arial" font-size="7" fill="#7ab4ff" text-anchor="middle">PORTAL AMERICAS</text>
+      <!-- Wheels -->
+      <circle cx="40" cy="56" r="12" fill="#222"/>
+      <circle cx="40" cy="56" r="7" fill="#444"/>
+      <circle cx="40" cy="56" r="3" fill="#666"/>
+      <circle cx="240" cy="56" r="12" fill="#222"/>
+      <circle cx="240" cy="56" r="7" fill="#444"/>
+      <circle cx="240" cy="56" r="3" fill="#666"/>
+      <!-- Doors -->
+      <rect x="96" y="20" width="3" height="30" fill="#8a1515" opacity="0.6"/>
+      <rect x="160" y="20" width="3" height="30" fill="#8a1515" opacity="0.6"/>
+      <rect x="220" y="20" width="3" height="30" fill="#8a1515" opacity="0.6"/>
+    </g>
+
+    <!-- Bus 2 - smaller in distance -->
+    <g transform="translate(1080, 72)" opacity="0.75">
+      <rect x="0" y="0" width="180" height="46" rx="5" fill="url(#bus2-grad)"/>
+      <rect x="0" y="18" width="180" height="10" fill="white" opacity="0.12"/>
+      <rect x="10" y="5" width="22" height="14" rx="2" fill="#b3d4f5" opacity="0.6"/>
+      <rect x="38" y="5" width="20" height="14" rx="2" fill="#b3d4f5" opacity="0.6"/>
+      <rect x="78" y="5" width="22" height="14" rx="2" fill="#b3d4f5" opacity="0.6"/>
+      <rect x="106" y="5" width="20" height="14" rx="2" fill="#b3d4f5" opacity="0.6"/>
+      <rect x="132" y="5" width="20" height="14" rx="2" fill="#b3d4f5" opacity="0.6"/>
+      <rect x="60" y="0" width="10" height="46" fill="#771010" opacity="0.5"/>
+      <circle cx="6" cy="10" r="4" fill="#FFE066" opacity="0.85" filter="url(#glow)"/>
+      <rect x="10" y="20" width="26" height="12" rx="2" fill="white" opacity="0.85"/>
+      <text x="23" y="30" font-family="Arial" font-size="8" font-weight="bold" fill="#E8272A" text-anchor="middle">TM</text>
+      <circle cx="28" cy="44" r="9" fill="#222"/>
+      <circle cx="28" cy="44" r="5" fill="#444"/>
+      <circle cx="152" cy="44" r="9" fill="#222"/>
+      <circle cx="152" cy="44" r="5" fill="#444"/>
+    </g>
+
+    <!-- Electric cable lines -->
+    <path d="M 0 35 Q 200 28 400 38 Q 600 48 800 35 Q 1000 22 1200 32 Q 1300 37 1400 30" stroke="#c0d4f0" stroke-width="1" fill="none" opacity="0.3"/>
+    <path d="M 0 42 Q 250 36 500 44 Q 700 52 900 40 Q 1100 28 1400 38" stroke="#c0d4f0" stroke-width="0.8" fill="none" opacity="0.2"/>
+    <!-- Support poles -->
+    <line x1="250" y1="20" x2="250" y2="120" stroke="#8a9aba" stroke-width="1.5" opacity="0.4"/>
+    <line x1="550" y1="18" x2="550" y2="120" stroke="#8a9aba" stroke-width="1.5" opacity="0.4"/>
+    <line x1="850" y1="22" x2="850" y2="120" stroke="#8a9aba" stroke-width="1.5" opacity="0.35"/>
+    <line x1="1150" y1="20" x2="1150" y2="120" stroke="#8a9aba" stroke-width="1.5" opacity="0.35"/>
+
+    <!-- Stars / city lights in sky -->
+    <circle cx="600" cy="15" r="1.2" fill="white" opacity="0.5"/>
+    <circle cx="680" cy="8" r="1" fill="white" opacity="0.4"/>
+    <circle cx="730" cy="18" r="1.5" fill="white" opacity="0.4"/>
+    <circle cx="820" cy="12" r="1" fill="white" opacity="0.5"/>
+    <circle cx="900" cy="6" r="1.3" fill="white" opacity="0.4"/>
+    <circle cx="980" cy="16" r="1" fill="white" opacity="0.35"/>
+    <circle cx="1060" cy="10" r="1.2" fill="white" opacity="0.4"/>
+    <circle cx="1140" cy="18" r="1" fill="white" opacity="0.35"/>
+    <circle cx="1220" cy="8" r="1.4" fill="white" opacity="0.4"/>
+    <circle cx="1300" cy="14" r="1" fill="white" opacity="0.4"/>
+
+    <!-- Overlay gradient for text legibility -->
+    <rect width="1400" height="160" fill="url(#overlay-grad)"/>
+  </svg>
+
+  <!-- Text overlay -->
+  <div id="hero-overlay">
+    <div class="hero-left">
+      <a class="btn-back" id="btn-back" href="javascript:void(0)" onclick="goPortal()" title="Volver al portal">‹ Inicio</a>
+      <div class="hero-logo">🚌</div>
+      <div class="hero-title">
+        <h1>Inventario Tarjetas Funcionario</h1>
+        <span>TRANSMILENIO S.A. — Módulo de Gestión · Bogotá, Colombia</span>
+      </div>
+    </div>
+    <div class="hero-right">
+      <span class="badge live" id="source-badge">Datos de muestra</span>
+      <span class="badge" id="date-badge">—</span>
+      <button class="btn-upload" id="btn-toggle" onclick="toggleUpload()">📂 Cargar Excel</button>
+    </div>
+  </div>
+</div>
+
+<!-- UPLOAD BANNER -->
+<div id="upload-banner">
+  <div class="upload-inner">
+    <div class="upload-icon">📊</div>
+    <div class="upload-text">
+      <h2>Actualizar datos del tablero</h2>
+      <p>Carga el archivo Excel actualizado — todo el tablero se recalcula automáticamente en segundos.</p>
+    </div>
+    <div class="upload-zone" id="drop-zone">
+      <input type="file" id="file-input" accept=".xlsx,.xls">
+      <div class="uz-icon">📁</div>
+      <div class="uz-label">
+        <strong>Selecciona o arrastra el archivo aquí</strong>
+        Acepta archivos .xlsx y .xls
+      </div>
+    </div>
+  </div>
+  <p class="upload-hint">💡 El archivo se procesa completamente en tu navegador — ningún dato sale de tu equipo.</p>
+</div>
+
+<!-- PERIODO BANNER -->
+<div id="periodo-banner">
+  <span class="periodo-label">Datos del periodo más reciente:</span>
+  <span class="periodo-pill"><span class="cal-icon">📅</span><span id="periodo-banner-val">Feb 2026</span></span>
+  <span class="periodo-desc">Fuente: Inventario total TF · columna de fecha más reciente</span>
+</div>
+
+<!-- FILTER BAR -->
+<div class="filter-bar">
+  <label>Filtrar por:</label>
+  <select id="f-vinculacion"><option value="">Todos los tipos vinculación</option></select>
+  <select id="f-area"><option value="">Todas las dependencias / áreas TM</option></select>
+  <div class="filter-spacer"></div>
+  <span class="records-count">Mostrando <strong id="rec-count">—</strong> tarjetas en circulación</span>
+  <span id="source-tag">Datos precargados</span>
+  <button class="btn-reset" onclick="resetFilters()">↺ Limpiar filtros</button>
+</div>
+
+<!-- MAIN -->
+<main>
+
+  <!-- KPIs -->
+  <div class="kpi-grid">
+    <div class="kpi" style="--accent:#1A52A8">
+      <div class="kpi-icon">📋</div>
+      <div class="kpi-pct" id="kpi-total-pct">100%</div>
+      <div class="kpi-val" id="kpi-total">—</div>
+      <div class="kpi-label">Total Inventario</div>
+      <div class="kpi-sub">periodo más reciente</div>
+    </div>
+    <div class="kpi" style="--accent:#0B8F82">
+      <div class="kpi-icon">✅</div>
+      <div class="kpi-pct" id="kpi-circ-pct">—</div>
+      <div class="kpi-val" id="kpi-circ">—</div>
+      <div class="kpi-label">En Circulación</div>
+      <div class="kpi-sub" id="kpi-circ-sub">asignadas activas</div>
+    </div>
+    <div class="kpi" style="--accent:#C0392B">
+      <div class="kpi-icon">🚫</div>
+      <div class="kpi-pct" id="kpi-bloq-pct">—</div>
+      <div class="kpi-val" id="kpi-bloq">—</div>
+      <div class="kpi-label">Bloqueadas / Dañadas</div>
+      <div class="kpi-sub">fuera de servicio</div>
+    </div>
+    <div class="kpi" style="--accent:#C07A10">
+      <div class="kpi-icon">📦</div>
+      <div class="kpi-pct" id="kpi-stock-pct">—</div>
+      <div class="kpi-val" id="kpi-stock">—</div>
+      <div class="kpi-label">En Stock</div>
+      <div class="kpi-sub">disponibles para asignar</div>
+    </div>
+    <div class="kpi" style="--accent:#D95F1A">
+      <div class="kpi-icon">📬</div>
+      <div class="kpi-pct" id="kpi-entregar-pct">—</div>
+      <div class="kpi-val" id="kpi-entregar">—</div>
+      <div class="kpi-label">Por Entregar</div>
+      <div class="kpi-sub">pendientes de entrega</div>
+    </div>
+    <div class="kpi" style="--accent:#D95F1A">
+      <div class="kpi-icon">⚠️</div>
+      <div class="kpi-pct" id="kpi-vencer-pct" style="color:#D95F1A">—</div>
+      <div class="kpi-val" id="kpi-vencer">—</div>
+      <div class="kpi-label">Próximas a Vencer</div>
+      <div class="kpi-sub">próximos 30 días</div>
+      <span class="kpi-delta warn">⏰</span>
+    </div>
+  </div>
+
+  <!-- Vinculación + Estados -->
+  <div class="row2">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title"><span>👥</span> Tipo de Vinculación (En Circulación)</div>
+        <span class="card-badge" id="badge-vinc">Circulación</span>
+      </div>
+      <div class="chart-wrap"><canvas id="chart-vinc"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title"><span>📊</span> Estado del Inventario — Periodo Más Reciente</div>
+        <span class="card-badge" id="badge-periodo">Feb 2026</span>
+      </div>
+      <div class="stat-list" id="list-estados"></div>
+    </div>
+  </div>
+
+  <!-- Todas las áreas -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><span>🏢</span> Tarjetas en Circulación por Área / Dependencia TM</div>
+      <span class="card-badge" id="badge-areas-count">—</span>
+    </div>
+    <div id="areas-wrap"><canvas id="chart-areas"></canvas></div>
+  </div>
+
+  <!-- Motivos bloqueo -->
+  <div class="row2">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title"><span>🚫</span> Motivos de Bloqueo / Daño</div>
+      </div>
+      <div class="chart-wrap"><canvas id="chart-bloqueo"></canvas></div>
+    </div>
+    <!-- Pagos por reposición -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title"><span>💳</span> Ingresos por Reposición TF — por Periodo</div>
+        <div class="period-controls">
+          <label>Ver:</label>
+          <select id="pago-desde" onchange="renderPagos()"><option value="">Desde...</option></select>
+          <span style="font-size:12px;color:var(--muted)">→</span>
+          <select id="pago-hasta" onchange="renderPagos()"><option value="">Hasta...</option></select>
+          <button class="btn-reset" onclick="resetPeriod()" style="padding:5px 10px;font-size:12px">↺</button>
+        </div>
+      </div>
+      <div class="chart-wrap" style="height:200px"><canvas id="chart-pagos"></canvas></div>
+      <!-- Totalizador -->
+      <div class="pagos-total-row" style="border-radius:8px;margin-top:4px">
+        <span class="pt-label">Total periodo seleccionado</span>
+        <span class="pt-val" id="pagos-total-val">—</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Alertas vencimiento 30 días -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><span>⚠️</span> Tarjetas Próximas a Vencer — Próximos 30 días (hoja Circulacion, col. Fecha de Expiración)</div>
+      <span class="card-badge" id="badge-vencer">—</span>
+    </div>
+    <div class="vencer-scroll">
+      <table class="alert-table">
+        <thead><tr><th>Responsable</th><th>Área / Dependencia</th><th>Empresa</th><th>Fecha Vence</th><th>Días</th></tr></thead>
+        <tbody id="tbody-vencer"></tbody>
+      </table>
+    </div>
+    <div class="vencer-scroll-info" id="vencer-scroll-info"></div>
+  </div>
+
+</main>
+
+<footer>
+  Datos fuente: Inventario total TF (estados) · Circulacion (áreas, vinculación, expiración) · Bloqueadas o Dañadas · Pago Tarjetas (Ingresos por Reposición TF) &nbsp;|&nbsp; Transmilenio S.A. — Bogotá
+</footer>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+//  DEFAULT DATA — periodo más reciente 2026-02-28
+// ══════════════════════════════════════════════════════════════
+const DEFAULT_DATA = {
+  // Inventario total TF col 14 (2026-02-28)
+  inventario_estados:{"asignada":1155,"Bloqueda o dañada":467,"stock":177,"por entregar":61},
+  periodo_label:"Feb 2026",
+  // Circulacion
+  vinculacion:{"Tercerizado":788,"Contratista":319,"Funcionario":69,"Aprendiz":5},
+  todas_areas:{
+    "Dirección Técnica Troncal":387,"Dirección Técnica de Seguridad":205,
+    "Subgerencia de Infraestructura":197,"Subgerencia de Comunicaciones y Relacionamiento con el Usuario":119,
+    "Subgerencia de Desarrollo Inmobiliario y de Negocios":78,
+    "Dirección Técnica Zonal":48,"Dirección de Analítica de Datos":52,
+    "Dirección Corporativa":41,"Subgerencia Económica":33,
+    "Dirección de TIC":17,"Subdirección de Talento Humano":2,
+    "Subgerencia de Planeación del SITP":1,"Dirección de Construcciones y Mantenimiento":1
+  },
+  conceptos_bloqueo:{"Bloqueado Perdida o hurto":383,"Daño Tarjeta":78,"Daño Chip":37},
+  // Pago Tarjetas — Ingresos por Reposición TF por Periodo
+  pagos_por_mes:{
+    "2024-10":96000,"2024-11":192000,"2024-12":192000,
+    "2025-01":96000,"2025-02":240000,"2025-03":64000,"2025-04":448000,
+    "2025-05":288000,"2025-06":240000,"2025-07":224000,"2025-08":336000,
+    "2025-09":336000,"2025-10":688000,"2025-11":304000,"2025-12":160000,
+    "2026-01":240000,"2026-02":128000
+  },
+  pago_total:4272000,
+  proximas_vencer_count:437,
+  proximas_vencer:[{"nombre":"Pedro Pablo Acuña Guarnizo","area":"Subgerencia de Infraestructura","empresa":"IDIPRON","fecha_exp":"2026-03-23","dias":3},{"nombre":"Julian Felipe Martinez Fajardo","area":"Subgerencia de Infraestructura","empresa":"IDIPRON","fecha_exp":"2026-03-23","dias":3},{"nombre":"Carlos Alberto Vargas","area":"Subgerencia de Comunicaciones y Relacionamiento con el Usuario","empresa":"TRANSMILENIO","fecha_exp":"2026-03-30","dias":10},{"nombre":"Mabel Carrasquilla","area":"Subgerencia de Comunicaciones y Relacionamiento con el Usuario","empresa":"TRANSMILENIO","fecha_exp":"2026-03-30","dias":10},{"nombre":"ANGIE YADIRA RODRIGUEZ DUEÑAS","area":"Subgerencia de Infraestructura","empresa":"TRANSMILENIO","fecha_exp":"2026-03-30","dias":10},{"nombre":"SANDOVAL ANGEL YULLY MAYERLY","area":"Dirección Técnica de Seguridad","empresa":"TRANSMILENIO","fecha_exp":"2026-03-31","dias":11},{"nombre":"Oscar Javier Quijano Barreto","area":"Dirección Técnica Zonal","empresa":"CONSORCIO OPERATIVO 01-25","fecha_exp":"2026-04-01","dias":12},{"nombre":"YOLANDA RODRIGUEZ APONTE","area":"Subgerencia de Infraestructura","empresa":"TRANSMILENIO","fecha_exp":"2026-04-01","dias":12},{"nombre":"Oscar Javier Quijano Barreto","area":"Dirección Técnica Zonal","empresa":"CONSORCIO OPERATIVO 01-25","fecha_exp":"2026-04-01","dias":12},{"nombre":"Oscar Javier Quijano Barreto","area":"Dirección Técnica Zonal","empresa":"CONSORCIO OPERATIVO 01-25","fecha_exp":"2026-04-01","dias":12},{"nombre":"Oscar Javier Quijano Barreto","area":"Dirección Técnica Zonal","empresa":"CONSORCIO OPERATIVO 01-25","fecha_exp":"2026-04-01","dias":12},{"nombre":"Oscar Javier Quijano Barreto","area":"Dirección Técnica Zonal","empresa":"CONSORCIO OPERATIVO 01-25","fecha_exp":"2026-04-01","dias":12},{"nombre":"Oscar Javier Quijano Barreto","area":"Dirección Técnica Zonal","empresa":"CONSORCIO OPERATIVO 01-25","fecha_exp":"2026-04-01","dias":12},{"nombre":"Oscar Javier Quijano Barreto","area":"Dirección Técnica Zonal","empresa":"CONSORCIO OPERATIVO 01-25","fecha_exp":"2026-04-01","dias":12},{"nombre":"Oscar Javier Quijano Barreto","area":"Dirección Técnica Zonal","empresa":"CONSORCIO OPERATIVO 01-25","fecha_exp":"2026-04-01","dias":12},{"nombre":"Oscar Javier Quijano Barreto","area":"Dirección Técnica Zonal","empresa":"CONSORCIO OPERATIVO 01-25","fecha_exp":"2026-04-01","dias":12},{"nombre":"Oscar Javier Quijano Barreto","area":"Dirección Técnica Zonal","empresa":"CONSORCIO OPERATIVO 01-25","fecha_exp":"2026-04-01","dias":12},{"nombre":"Oscar Javier Quijano Barreto","area":"Dirección Técnica Zonal","empresa":"CONSORCIO OPERATIVO 01-25","fecha_exp":"2026-04-01","dias":12},{"nombre":"Oscar Javier Quijano Barreto","area":"Dirección Técnica Zonal","empresa":"CONSORCIO OPERATIVO 01-25","fecha_exp":"2026-04-01","dias":12},{"nombre":"Oscar Javier Quijano Barreto","area":"Dirección Técnica Zonal","empresa":"CONSORCIO OPERATIVO 01-25","fecha_exp":"2026-04-01","dias":12},{"nombre":"Oscar Javier Quijano Barreto","area":"Dirección Técnica Zonal","empresa":"CONSORCIO OPERATIVO 01-25","fecha_exp":"2026-04-01","dias":12},{"nombre":"Oscar Javier Quijano Barreto","area":"Dirección Técnica Zonal","empresa":"CONSORCIO OPERATIVO 01-25","fecha_exp":"2026-04-01","dias":12},{"nombre":"Oscar Javier Quijano Barreto","area":"Dirección Técnica Zonal","empresa":"CONSORCIO OPERATIVO 01-25","fecha_exp":"2026-04-01","dias":12},{"nombre":"Oscar Javier Quijano Barreto","area":"Dirección Técnica Zonal","empresa":"CONSORCIO OPERATIVO 01-25","fecha_exp":"2026-04-01","dias":12},{"nombre":"Oscar Javier Quijano Barreto","area":"Dirección Técnica Zonal","empresa":"CONSORCIO OPERATIVO 01-25","fecha_exp":"2026-04-01","dias":12},{"nombre":"Oscar Javier Quijano Barreto","area":"Dirección Técnica Zonal","empresa":"CONSORCIO OPERATIVO 01-25","fecha_exp":"2026-04-01","dias":12},{"nombre":"Oscar Javier Quijano Barreto","area":"Dirección Técnica Zonal","empresa":"CONSORCIO OPERATIVO 01-25","fecha_exp":"2026-04-01","dias":12},{"nombre":"Oscar Javier Quijano Barreto","area":"Dirección Técnica Zonal","empresa":"CONSORCIO OPERATIVO 01-25","fecha_exp":"2026-04-01","dias":12},{"nombre":"Oscar Javier Quijano Barreto","area":"Dirección Técnica Zonal","empresa":"CONSORCIO OPERATIVO 01-25","fecha_exp":"2026-04-01","dias":12},{"nombre":"Oscar Javier Quijano Barreto","area":"Dirección Técnica Zonal","empresa":"CONSORCIO OPERATIVO 01-25","fecha_exp":"2026-04-01","dias":12},{"nombre":"Oscar Javier Quijano Barreto","area":"Dirección Técnica Zonal","empresa":"CONSORCIO OPERATIVO 01-25","fecha_exp":"2026-04-01","dias":12},{"nombre":"Oscar Javier Quijano Barreto","area":"Dirección Técnica Zonal","empresa":"CONSORCIO OPERATIVO 01-25","fecha_exp":"2026-04-01","dias":12},{"nombre":"Oscar Javier Quijano Barreto","area":"Dirección Técnica Zonal","empresa":"CONSORCIO OPERATIVO 01-25","fecha_exp":"2026-04-01","dias":12},{"nombre":"Oscar Javier Quijano Barreto","area":"Dirección Técnica Zonal","empresa":"CONSORCIO OPERATIVO 01-25","fecha_exp":"2026-04-01","dias":12},{"nombre":"Oscar Javier Quijano Barreto","area":"Dirección Técnica Zonal","empresa":"CONSORCIO OPERATIVO 01-25","fecha_exp":"2026-04-01","dias":12},{"nombre":"Oscar Javier Quijano Barreto","area":"Dirección Técnica Zonal","empresa":"CONSORCIO OPERATIVO 01-25","fecha_exp":"2026-04-01","dias":12},{"nombre":"Oscar Javier Quijano Barreto","area":"Dirección Técnica Zonal","empresa":"CONSORCIO OPERATIVO 01-25","fecha_exp":"2026-04-01","dias":12},{"nombre":"Oscar Javier Quijano Barreto","area":"Dirección Técnica Zonal","empresa":"CONSORCIO OPERATIVO 01-25","fecha_exp":"2026-04-01","dias":12},{"nombre":"Oscar Javier Quijano Barreto","area":"Dirección Técnica Zonal","empresa":"CONSORCIO OPERATIVO 01-25","fecha_exp":"2026-04-01","dias":12},{"nombre":"Oscar Javier Quijano Barreto","area":"Dirección Técnica Zonal","empresa":"CONSORCIO OPERATIVO 01-25","fecha_exp":"2026-04-01","dias":12},{"nombre":"Oscar Javier Quijano Barreto","area":"Dirección Técnica Zonal","empresa":"CONSORCIO OPERATIVO 01-25","fecha_exp":"2026-04-01","dias":12},{"nombre":"Oscar Javier Quijano Barreto","area":"Dirección Técnica Zonal","empresa":"CONSORCIO OPERATIVO 01-25","fecha_exp":"2026-04-01","dias":12},{"nombre":"Oscar Javier Quijano Barreto","area":"Dirección Técnica Zonal","empresa":"CONSORCIO OPERATIVO 01-25","fecha_exp":"2026-04-01","dias":12},{"nombre":"Oscar Javier Quijano Barreto","area":"Dirección Técnica Zonal","empresa":"CONSORCIO OPERATIVO 01-25","fecha_exp":"2026-04-01","dias":12},{"nombre":"Oscar Javier Quijano Barreto","area":"Dirección Técnica Zonal","empresa":"CONSORCIO OPERATIVO 01-25","fecha_exp":"2026-04-01","dias":12},{"nombre":"Oscar Javier Quijano Barreto","area":"Dirección Técnica Zonal","empresa":"CONSORCIO OPERATIVO 01-25","fecha_exp":"2026-04-01","dias":12},{"nombre":"Oscar Javier Quijano Barreto","area":"Dirección Técnica Zonal","empresa":"CONSORCIO OPERATIVO 01-25","fecha_exp":"2026-04-01","dias":12},{"nombre":"Oscar Javier Quijano Barreto","area":"Dirección Técnica Zonal","empresa":"CONSORCIO OPERATIVO 01-25","fecha_exp":"2026-04-01","dias":12},{"nombre":"Oscar Javier Quijano Barreto","area":"Dirección Técnica Zonal","empresa":"CONSORCIO OPERATIVO 01-25","fecha_exp":"2026-04-01","dias":12},{"nombre":"Oscar Javier Quijano Barreto","area":"Dirección Técnica Zonal","empresa":"CONSORCIO OPERATIVO 01-25","fecha_exp":"2026-04-01","dias":12},{"nombre":"Oscar Javier Quijano Barreto","area":"Dirección Técnica Zonal","empresa":"CONSORCIO OPERATIVO 01-25","fecha_exp":"2026-04-01","dias":12},{"nombre":"Oscar Javier Quijano Barreto","area":"Dirección Técnica Zonal","empresa":"CONSORCIO OPERATIVO 01-25","fecha_exp":"2026-04-01","dias":12},{"nombre":"Oscar Javier Quijano Barreto","area":"Dirección Técnica Zonal","empresa":"CONSORCIO OPERATIVO 01-25","fecha_exp":"2026-04-01","dias":12},{"nombre":"Rodriguez Nova Bleidy Alejandra","area":"Subgerencia de Comunicaciones y Relacionamiento con el Usuario","empresa":"TRANSMILENIO","fecha_exp":"2026-04-02","dias":13},{"nombre":"Luis Javier Pinto Umaña","area":"Dirección de Analítica de Datos","empresa":"TRANSMILENIO","fecha_exp":"2026-04-02","dias":13},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"TRANSMILENIO","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"TRANSMILENIO","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"TRANSMILENIO","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"TRANSMILENIO","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"ARMANDO JOSE ILLERA CHARRIA","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"TRANSMILENIO","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"TRANSMILENIO","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"TRANSMILENIO","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"LUIS GUILLERMO EHRHARDT PEREZ","area":"Dirección Técnica Troncal","empresa":"CONSORCIO VIAL JJ-ACI","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"TRANSMILENIO","fecha_exp":"2026-04-07","dias":18},{"nombre":"ARMANDO JOSE ILLERA CHARRIA","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"ARMANDO JOSE ILLERA CHARRIA","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"ARMANDO JOSE ILLERA CHARRIA","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"ARMANDO JOSE ILLERA CHARRIA","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"ARMANDO JOSE ILLERA CHARRIA","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO OPERACIÓN TMSA","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO TRANSPORTALES 10-25","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Armando Jose Illera Charria","area":"Dirección Técnica Troncal","empresa":"CONSORCIO FUERZA OPERATIVA BRT 2025","fecha_exp":"2026-04-07","dias":18},{"nombre":"Cristian Ricardo Lozada Melo","area":"Subgerencia de Desarrollo Inmobiliario y de Negocios","empresa":"NATURALE","fecha_exp":"2026-04-16","dias":27}]
+};
+
+let RAW = {...DEFAULT_DATA};
+let filters = {vinculacion:"", area:""};
+let charts  = {};
+let uploadOpen = true;
+
+// ══════════════════════════════════════════════════════════════
+//  EXCEL PARSER
+// ══════════════════════════════════════════════════════════════
+document.getElementById('file-input').addEventListener('change', function(){
+  if(this.files[0]) handleFile(this.files[0]);
+});
+
+function handleFile(file){
+  if(!file) return;
+  if(!/\.(xlsx|xls)$/i.test(file.name)){showToast('❌ Sube un archivo .xlsx o .xls',true);return;}
+  showProcessing(true,'Leyendo archivo…');
+  const reader = new FileReader();
+  reader.onload = function(e){
+    setTimeout(()=>{
+      try{
+        setStep('Parseando hojas de Excel…');
+        const wb = XLSX.read(e.target.result,{type:'array',cellDates:true,dateNF:'yyyy-mm-dd'});
+        const data = extractData(wb, file.name);
+        RAW = data;
+        resetFilters(true);
+        render();
+        showProcessing(false);
+        collapseUpload();
+        const short = file.name.slice(0,30)+(file.name.length>30?'…':'');
+        document.getElementById('source-badge').textContent = '📄 '+short;
+        document.getElementById('source-tag').textContent   = short;
+        showToast('✅ "'+short+'" cargado — '+fmt(data.inventario_estados.asignada||0)+' tarjetas en circulación');
+      }catch(err){
+        showProcessing(false);
+        showToast('❌ Error: '+err.message,true);
+        console.error(err);
+      }
+    },80);
+  };
+  reader.onerror = ()=>{showProcessing(false);showToast('❌ No se pudo leer el archivo',true);};
+  reader.readAsArrayBuffer(file);
+}
+
+function setStep(m){document.getElementById('proc-step').textContent=m;}
+
+function extractData(wb, fileName){
+  function getRowsRaw(kw){
+    const n=wb.SheetNames.find(s=>s.toLowerCase().includes(kw.toLowerCase()));
+    return n?XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,defval:'',cellDates:true}):null;
+  }
+  function getRows(kw){
+    const n=wb.SheetNames.find(s=>s.toLowerCase().includes(kw.toLowerCase()));
+    return n?XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,defval:'',raw:false}):null;
+  }
+  function topN(obj,n){return Object.fromEntries(Object.entries(obj).sort((a,b)=>b[1]-a[1]).slice(0,n));}
+
+  // ── INVENTARIO TOTAL TF — periodo más reciente ──
+  setStep('Procesando Inventario total TF…');
+  const invtRows = getRows('inventario total')||getRows('inventario');
+  let inventario_estados={"asignada":0,"Bloqueda o dañada":0,"stock":0,"por entregar":0};
+  let periodo_label="Más reciente";
+  if(invtRows&&invtRows.length>1){
+    const hdr=invtRows[0];
+    // Find last date column with a date value
+    let lastDateCol=14, lastDateVal=null;
+    for(let c=hdr.length-1;c>=1;c--){
+      const v=hdr[c];
+      if(v&&String(v).trim()&&String(v).trim()!=='nan'){
+        lastDateCol=c;
+        lastDateVal=v;
+        break;
+      }
+    }
+    if(lastDateVal){
+      try{
+        const d=new Date(lastDateVal);
+        if(!isNaN(d)) periodo_label=d.toLocaleDateString('es-CO',{month:'short',year:'numeric'});
+      }catch(e){}
+    }
+    for(let i=1;i<invtRows.length;i++){
+      const v=String(invtRows[i][lastDateCol]||'').trim().toLowerCase();
+      if(v==='asignada') inventario_estados['asignada']++;
+      else if(v.includes('bloque')) inventario_estados['Bloqueda o dañada']++;
+      else if(v==='stock') inventario_estados['stock']++;
+      else if(v.includes('entrega')) inventario_estados['por entregar']++;
+    }
+  }
+
+  // ── CIRCULACION ──
+  setStep('Procesando Circulación…');
+  const circRaw = getRowsRaw('circulacion')||getRowsRaw('circulació');
+  let vinculacion={}, todas_areas={}, proximas_vencer=[], proximas_vencer_count=0;
+  const today = new Date();
+
+  if(circRaw&&circRaw.length>1){
+    const hdr=circRaw[0].map(c=>String(c||'').trim().toLowerCase());
+    const idx=kw=>hdr.findIndex(h=>h.includes(kw));
+    const iVinc=idx('vinculacion'), iArea=idx('área'), iEmp=idx('empresa');
+    const iExp=idx('expiracion'), iNomb=idx('nombre responsable');
+
+    for(let i=1;i<circRaw.length;i++){
+      const r=circRaw[i];
+      if(!r[0]||String(r[0]).trim()==='') continue;
+      const addTo=(obj,col)=>{if(col>=0){const v=String(r[col]||'').trim();if(v)obj[v]=(obj[v]||0)+1;}};
+      addTo(vinculacion,iVinc);
+      addTo(todas_areas,iArea);
+
+      // Fecha de Expiracion — scan ALL rows
+      if(iExp>=0&&r[iExp]){
+        let d=r[iExp];
+        if(typeof d==='string') d=new Date(d);
+        if(d instanceof Date&&!isNaN(d)){
+          const diff=Math.round((d-today)/86400000);
+          if(diff>=0&&diff<=30){
+            proximas_vencer_count++;
+            proximas_vencer.push({
+              nombre: iNomb>=0?String(r[iNomb]||'').trim():'—',
+              area:   iArea>=0?String(r[iArea]||'').trim():'—',
+              empresa:iEmp>=0?String(r[iEmp]||'').trim():'—',
+              fecha_exp: d.toISOString().slice(0,10),
+              dias: diff
+            });
+          }
+        }
+      }
+    }
+    proximas_vencer.sort((a,b)=>a.dias-b.dias);
+  }
+
+  // ── BLOQUEADAS ──
+  setStep('Procesando Bloqueadas…');
+  const bloqRows=getRows('bloqueada')||getRows('bloquea');
+  let conceptos_bloqueo={};
+  if(bloqRows&&bloqRows.length>1){
+    const bh=bloqRows[0].map(c=>String(c||'').trim().toLowerCase());
+    const ic=bh.findIndex(h=>h.includes('concepto'));
+    const col=ic>=0?ic:24;
+    for(let i=1;i<bloqRows.length;i++){const v=String(bloqRows[i][col]||'').trim();if(v)conceptos_bloqueo[v]=(conceptos_bloqueo[v]||0)+1;}
+  }
+
+  // ── PAGO TARJETAS — Ingresos por Reposición TF, agrupado por Periodo ──
+  setStep('Procesando Pago Tarjetas…');
+  const pagoRaw=getRowsRaw('pago');
+  let pagos_por_mes={}, pago_total=0;
+  if(pagoRaw&&pagoRaw.length>1){
+    const ph=pagoRaw[0].map(c=>String(c||'').trim().toLowerCase());
+    const iIngr=ph.findIndex(h=>h.includes('ingresos'));
+    const iPer =ph.findIndex(h=>h.includes('periodo')||h.includes('período'));
+    for(let i=1;i<pagoRaw.length;i++){
+      const r=pagoRaw[i];
+      if(!r[0]||String(r[0]).trim()==='') continue;
+      let ingr=iIngr>=0?parseFloat(String(r[iIngr]||'').replace(/[^0-9.]/g,'')):0;
+      if(isNaN(ingr)) ingr=0;
+      let per=iPer>=0?r[iPer]:null;
+      if(per){
+        if(typeof per==='string') per=new Date(per);
+        if(per instanceof Date&&!isNaN(per)){
+          const k=`${per.getFullYear()}-${String(per.getMonth()+1).padStart(2,'0')}`;
+          // Use LAST ingreso value per periodo (acumulado)
+          pagos_por_mes[k]=ingr;
+        }
+      }
+    }
+    pagos_por_mes=Object.fromEntries(Object.entries(pagos_por_mes).sort());
+    pago_total=Object.values(pagos_por_mes).reduce((a,b)=>a+b,0);
+  }
+
+  return {
+    inventario_estados, periodo_label,
+    vinculacion: topN(vinculacion,12),
+    todas_areas,
+    all_areas_list: Object.keys(todas_areas).sort(),
+    conceptos_bloqueo, pagos_por_mes, pago_total,
+    proximas_vencer, proximas_vencer_count, fileName
+  };
+}
+
+// ══════════════════════════════════════════════════════════════
+//  CHART HELPERS
+// ══════════════════════════════════════════════════════════════
+const PALETTE=['#1A52A8','#0B8F82','#D95F1A','#7C3AED','#C07A10','#C0392B','#2980B9','#16A085','#8E44AD','#E67E22','#2ECC71','#E74C3C','#3498DB'];
+const PIE_PAL=['#1A52A8','#0B8F82','#D95F1A','#C0392B','#7C3AED','#C07A10'];
+const BLOK_PAL=['#C0392B','#D95F1A','#C07A10'];
+
+Chart.defaults.font.family="'DM Sans',sans-serif";
+Chart.defaults.plugins.tooltip.padding=10;
+Chart.defaults.plugins.tooltip.cornerRadius=8;
+
+function fmt(n){return Math.round(n).toLocaleString('es-CO');}
+function fmtCOP(n){return '$ '+Math.round(n).toLocaleString('es-CO');}
+
+// Donut with value+pct labels drawn inside slices
+function makeDonutLabels(id,labels,data,colors){
+  if(charts[id]) charts[id].destroy();
+  const total=data.reduce((a,b)=>a+b,0);
+  const plugin={
+    id:'dl_'+id,
+    afterDatasetsDraw(chart){
+      const {ctx}=chart;
+      chart.getDatasetMeta(0).data.forEach((arc,i)=>{
+        if(!data[i]) return;
+        const pct=(data[i]/total*100).toFixed(1);
+        const mid=arc.startAngle+(arc.endAngle-arc.startAngle)/2;
+        const r=(arc.innerRadius+arc.outerRadius)/2;
+        const x=arc.x+Math.cos(mid)*r, y=arc.y+Math.sin(mid)*r;
+        ctx.save();
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.font='bold 13px Syne,sans-serif'; ctx.fillStyle='#fff';
+        ctx.fillText(fmt(data[i]),x,y-7);
+        ctx.font='11px DM Sans,sans-serif'; ctx.fillStyle='rgba(255,255,255,.85)';
+        ctx.fillText(pct+'%',x,y+8);
+        ctx.restore();
+      });
+    }
+  };
+  charts[id]=new Chart(document.getElementById(id),{
+    type:'doughnut',
+    data:{labels,datasets:[{data,backgroundColor:colors,borderWidth:2,borderColor:'#fff',hoverOffset:8}]},
+    options:{responsive:true,maintainAspectRatio:true,cutout:'55%',
+      plugins:{legend:{position:'right',labels:{font:{size:12},padding:14,boxWidth:12}},
+        tooltip:{callbacks:{label:c=>` ${c.label}: ${fmt(c.raw)} (${(c.raw/total*100).toFixed(1)}%)`}}}},
+    plugins:[plugin]
+  });
+}
+
+// Horizontal bar for areas — ALL areas, exact height fit
+function makeAreasBar(id, areasObj){
+  if(charts[id]) charts[id].destroy();
+  const entries=Object.entries(areasObj).sort((a,b)=>b[1]-a[1]);
+  const labels=entries.map(e=>e[0]);
+  const data=entries.map(e=>e[1]);
+  const max=Math.max(...data,1);
+  const bgColors=labels.map((_,i)=>PALETTE[i%PALETTE.length]);
+
+  // Set the wrapper height precisely: 32px per bar + 40px for x-axis
+  const BAR_H = 32;
+  const wrapH = labels.length * BAR_H + 40;
+  const wrap = document.getElementById('areas-wrap');
+  wrap.style.height = wrapH + 'px';
+  const canvas = document.getElementById(id);
+  canvas.style.height = wrapH + 'px';
+  canvas.style.maxHeight = 'none';
+
+  const plugin={
+    id:'al_'+id,
+    afterDatasetsDraw(chart){
+      const {ctx}=chart;
+      chart.getDatasetMeta(0).data.forEach((bar,i)=>{
+        ctx.save();
+        ctx.font='bold 11px Syne,sans-serif';
+        ctx.fillStyle='#1A2740';
+        ctx.textAlign='left'; ctx.textBaseline='middle';
+        ctx.fillText(fmt(data[i]),bar.x+6,bar.y);
+        ctx.restore();
+      });
+    }
+  };
+
+  charts[id]=new Chart(canvas,{
+    type:'bar',
+    data:{labels,datasets:[{label:'Tarjetas',data,backgroundColor:bgColors,borderRadius:5,borderSkipped:false}]},
+    options:{
+      responsive:true, maintainAspectRatio:false, indexAxis:'y',
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${fmt(c.raw)} tarjetas`}}},
+      scales:{
+        x:{grid:{color:'#E0E8F0'},ticks:{font:{size:10}},suggestedMax:max*1.18},
+        y:{grid:{display:false},ticks:{font:{size:11},autoSkip:false},
+          afterFit(scale){scale.width=Math.min(scale.width,320);}}
+      }
+    },
+    plugins:[plugin]
+  });
+}
+
+// Horizontal bar with value labels for bloqueo
+function makeBloqueoBar(id,labels,data){
+  if(charts[id]) charts[id].destroy();
+  const max=Math.max(...data,1);
+  const plugin={
+    id:'bl_'+id,
+    afterDatasetsDraw(chart){
+      const {ctx}=chart;
+      chart.getDatasetMeta(0).data.forEach((bar,i)=>{
+        ctx.save();
+        ctx.font='bold 13px Syne,sans-serif'; ctx.fillStyle='#1A2740';
+        ctx.textAlign='left'; ctx.textBaseline='middle';
+        ctx.fillText(fmt(data[i]),bar.x+8,bar.y);
+        ctx.restore();
+      });
+    }
+  };
+  charts[id]=new Chart(document.getElementById(id),{
+    type:'bar',
+    data:{labels,datasets:[{label:'Tarjetas',data,backgroundColor:BLOK_PAL,borderRadius:6,borderSkipped:false}]},
+    options:{responsive:true,maintainAspectRatio:true,indexAxis:'y',
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${fmt(c.raw)} tarjetas`}}},
+      scales:{x:{grid:{color:'#E0E8F0'},ticks:{font:{size:11}},suggestedMax:max*1.2},
+        y:{grid:{display:false},ticks:{font:{size:12}}}}},
+    plugins:[plugin]
+  });
+}
+
+// Line chart pagos
+function makeLine(id,labels,data){
+  if(charts[id]) charts[id].destroy();
+  const ctx=document.getElementById(id).getContext('2d');
+  const g=ctx.createLinearGradient(0,0,0,240);
+  g.addColorStop(0,'#1A52A825'); g.addColorStop(1,'#1A52A800');
+  const plugin={
+    id:'ll_'+id,
+    afterDatasetsDraw(chart){
+      const {ctx:c,data:cd}=chart;
+      chart.getDatasetMeta(0).data.forEach((pt,i)=>{
+        const val=cd.datasets[0].data[i]; if(val==null) return;
+        c.save();
+        c.font='bold 9px DM Sans,sans-serif'; c.fillStyle='#1A52A8';
+        c.textAlign='center'; c.textBaseline='bottom';
+        c.fillText(fmtCOP(val),pt.x,pt.y-7);
+        c.restore();
+      });
+    }
+  };
+  charts[id]=new Chart(ctx,{
+    type:'line',
+    data:{labels,datasets:[{label:'Ingresos ($)',data,borderColor:'#1A52A8',backgroundColor:g,tension:.4,fill:true,pointRadius:5,pointBackgroundColor:'#1A52A8',pointHoverRadius:8,borderWidth:2.5}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+fmtCOP(c.raw)}}},
+      scales:{x:{grid:{display:false},ticks:{font:{size:10},maxRotation:45}},
+        y:{grid:{color:'#E0E8F0'},ticks:{callback:v=>fmtCOP(v),font:{size:10}}}}},
+    plugins:[plugin]
+  });
+}
+
+// ── PAGOS PERIOD ──────────────────────────────────────────────
+function populatePeriodSelects(){
+  const keys=Object.keys(RAW.pagos_por_mes);
+  ['pago-desde','pago-hasta'].forEach((id,ii)=>{
+    const sel=document.getElementById(id);
+    const cur=sel.value;
+    sel.innerHTML=`<option value="">${ii===0?'Desde...':'Hasta...'}</option>`+
+      keys.map(k=>`<option value="${k}"${k===cur?' selected':''}>${k}</option>`).join('');
+  });
+}
+function renderPagos(){
+  const keys=Object.keys(RAW.pagos_por_mes);
+  const desde=document.getElementById('pago-desde').value;
+  const hasta=document.getElementById('pago-hasta').value;
+  const filt=keys.filter(k=>(!desde||k>=desde)&&(!hasta||k<=hasta));
+  const vals=filt.map(k=>RAW.pagos_por_mes[k]);
+  makeLine('chart-pagos',filt,vals);
+  const total=vals.reduce((a,b)=>a+b,0);
+  document.getElementById('pagos-total-val').textContent=fmtCOP(total);
+}
+function resetPeriod(){
+  document.getElementById('pago-desde').value='';
+  document.getElementById('pago-hasta').value='';
+  renderPagos();
+}
+
+// ── VENCER TABLE — all rows in scrollable container ──────────
+function renderVencer(){
+  const all=RAW.proximas_vencer||[];
+  const total=RAW.proximas_vencer_count;
+
+  document.getElementById('badge-vencer').textContent=`${fmt(total)} tarjeta${total!==1?'s':''}`;
+  document.getElementById('tbody-vencer').innerHTML= all.length===0
+    ? `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">✅ Sin tarjetas próximas a vencer en 30 días</td></tr>`
+    : all.map(r=>{
+        const cls=r.dias<=7?'urgent':r.dias<=20?'warn':'ok';
+        return `<tr><td><strong>${r.nombre}</strong></td><td style="font-size:12px;color:var(--muted)">${r.area}</td><td style="font-size:12px">${r.empresa}</td><td>${r.fecha_exp}</td><td><span class="days-chip ${cls}">${r.dias}d</span></td></tr>`;
+      }).join('');
+
+  const info=document.getElementById('vencer-scroll-info');
+  if(all.length>0) info.textContent=`Mostrando ${fmt(all.length)} registros — desplaza para ver todos`;
+  else info.textContent='';
+}
+
+// ══════════════════════════════════════════════════════════════
+//  RENDER
+// ══════════════════════════════════════════════════════════════
+function render(){
+  const D=RAW;
+  const now=new Date();
+  document.getElementById('date-badge').textContent=
+    now.toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'})+' · '+
+    now.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
+
+  // ── Estados inventario (periodo más reciente) ──
+  const est=D.inventario_estados;
+  const totalInv=Object.values(est).reduce((a,b)=>a+b,0)||1;
+  const asign=est['asignada']||0, bloq=est['Bloqueda o dañada']||0;
+  const stock=est['stock']||0,    pEntr=est['por entregar']||0;
+
+  document.getElementById('kpi-total').textContent   = fmt(totalInv);
+  document.getElementById('kpi-total-pct').textContent = '100% total inventario';
+  document.getElementById('kpi-circ').textContent    = fmt(asign);
+  document.getElementById('kpi-circ-pct').textContent = (asign/totalInv*100).toFixed(1)+'% del inventario';
+  document.getElementById('kpi-bloq').textContent    = fmt(bloq);
+  document.getElementById('kpi-bloq-pct').textContent = (bloq/totalInv*100).toFixed(1)+'% del inventario';
+  document.getElementById('kpi-stock').textContent   = fmt(stock);
+  document.getElementById('kpi-stock-pct').textContent = (stock/totalInv*100).toFixed(1)+'% del inventario';
+  document.getElementById('kpi-entregar').textContent = fmt(pEntr);
+  document.getElementById('kpi-entregar-pct').textContent = (pEntr/totalInv*100).toFixed(1)+'% del inventario';
+  document.getElementById('kpi-vencer').textContent  = fmt(D.proximas_vencer_count);
+  document.getElementById('kpi-vencer-pct').textContent = (D.proximas_vencer_count/(asign||1)*100).toFixed(1)+'% en circulación';
+  document.getElementById('rec-count').textContent   = fmt(asign);
+  document.getElementById('badge-periodo').textContent = D.periodo_label||'Más reciente';
+  document.getElementById('periodo-banner-val').textContent = D.periodo_label||'Más reciente';
+
+  // ── Estados list ──
+  const estC={'asignada':'#0B8F82','Bloqueda o dañada':'#C0392B','stock':'#C07A10','por entregar':'#1A52A8'};
+  const estL={'asignada':'Asignadas (En Circulación)','Bloqueda o dañada':'Bloqueadas / Dañadas','stock':'En Stock','por entregar':'Por Entregar'};
+  document.getElementById('list-estados').innerHTML=Object.entries(est).map(([k,v])=>{
+    const p=(v/totalInv*100).toFixed(1), c=estC[k]||'#888';
+    return `<div class="stat-row"><span class="name">${estL[k]||k}</span><span class="count" style="color:${c}">${fmt(v)}</span><span class="pct">${p}%</span></div><div class="stat-bar-wrap"><div class="stat-bar" style="width:${p}%;background:${c}"></div></div>`;
+  }).join('');
+
+  // ── Vinculación donut ──
+  const vd=filters.vinculacion?{[filters.vinculacion]:D.vinculacion[filters.vinculacion]}:D.vinculacion;
+  makeDonutLabels('chart-vinc',Object.keys(vd),Object.values(vd),PIE_PAL);
+  document.getElementById('badge-vinc').textContent=filters.vinculacion||'Circulación';
+
+  // ── Todas las áreas bar ──
+  let areasObj=D.todas_areas||{};
+  if(filters.area && areasObj[filters.area]!=null) areasObj={[filters.area]:areasObj[filters.area]};
+  makeAreasBar('chart-areas', areasObj);
+  document.getElementById('badge-areas-count').textContent=Object.keys(areasObj).length+' áreas';
+
+  // ── Bloqueo ──
+  makeBloqueoBar('chart-bloqueo',Object.keys(D.conceptos_bloqueo),Object.values(D.conceptos_bloqueo));
+
+  // ── Pagos ──
+  populatePeriodSelects();
+  renderPagos();
+
+  // ── Alertas vencer ──
+  renderVencer();
+
+  // ── Repoblar selects ──
+  populateSelect('f-vinculacion','Todos los tipos vinculación',Object.keys(D.vinculacion),filters.vinculacion);
+  populateSelect('f-area','Todas las dependencias / áreas TM',D.all_areas_list||Object.keys(D.todas_areas||{}),filters.area);
+}
+
+function populateSelect(id,ph,opts,cur){
+  const s=document.getElementById(id);
+  s.innerHTML=`<option value="">${ph}</option>`+opts.map(o=>`<option value="${o}"${o===cur?' selected':''}>${o}</option>`).join('');
+}
+
+// ── FILTERS ──────────────────────────────────────────────────
+document.getElementById('f-vinculacion').addEventListener('change',function(){filters.vinculacion=this.value;render();});
+document.getElementById('f-area').addEventListener('change',function(){filters.area=this.value;render();});
+
+function resetFilters(silent){
+  filters={vinculacion:"",area:""};
+  document.getElementById('f-vinculacion').value='';
+  document.getElementById('f-area').value='';
+  if(!silent) render();
+}
+
+// ── UPLOAD ────────────────────────────────────────────────────
+function toggleUpload(){
+  uploadOpen=!uploadOpen;
+  document.getElementById('upload-banner').classList.toggle('collapsed',!uploadOpen);
+  document.getElementById('btn-toggle').textContent=uploadOpen?'✕ Cerrar':'📂 Cargar Excel';
+}
+function collapseUpload(){
+  uploadOpen=false;
+  document.getElementById('upload-banner').classList.add('collapsed');
+  document.getElementById('btn-toggle').textContent='📂 Cargar Excel';
+}
+const dz=document.getElementById('drop-zone');
+['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add('drag-over');}));
+['dragleave','drop'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove('drag-over');}));
+dz.addEventListener('drop',e=>{const f=e.dataTransfer.files[0];if(f)handleFile(f);});
+
+function showProcessing(show,msg){
+  document.getElementById('processing').classList.toggle('show',show);
+  if(msg) document.getElementById('proc-title').textContent=msg;
+}
+let toastTimer;
+function showToast(msg,isError){
+  const t=document.getElementById('toast');
+  document.getElementById('toast-msg').textContent=msg;
+  t.style.background=isError?'#C0392B':'var(--teal)';
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'),5000);
+}
+setInterval(()=>{
+  const n=new Date();
+  document.getElementById('date-badge').textContent=
+    n.toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'})+' · '+
+    n.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
+},60000);
+
+// ── BACK BUTTON ─────────────────────────────────────────────
+function goPortal(){
+  try{
+    const saved=localStorage.getItem('tm_dash_paths');
+    if(saved){
+      const tf=(JSON.parse(saved).tf||'');
+      if(tf){
+        const portal=tf.replace(/[^\\/]*$/,'portal_tableros.html');
+        window.location.href=portal;
+        return;
+      }
+    }
+  }catch(e){}
+  // Fallback: same folder (works both locally and on GitHub Pages)
+  const here=window.location.href.replace(/[^\\/]*$/,'portal_tableros.html');
+  window.location.href=here;
+}
+
+// INIT
+render();
+</script>
+</body>
+</html>
